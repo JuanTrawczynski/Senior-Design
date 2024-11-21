@@ -9,7 +9,6 @@ TOPIC = "led/control"
 # Initialize variables
 client = mqtt.Client()
 is_connected = False
-led_state = False  # Keeps track of LED state (ON/OFF)
 
 # Functions for MQTT communication
 def connect_esp32():
@@ -30,21 +29,14 @@ def disconnect_esp32():
     except Exception as e:
         update_status(f"Failed to disconnect: {str(e)}")
 
-def toggle_led():
-    global led_state
+def toggle_led(color):
     if not is_connected:
         messagebox.showwarning("Warning", "ESP32 is not connected!")
         return
 
     try:
-        # Toggle LED state
-        if led_state:
-            client.publish(TOPIC, "OFF")  # Turn LED OFF
-            messagebox.showinfo("Success", "LED Turned OFF!")
-        else:
-            client.publish(TOPIC, "ON")  # Turn LED ON
-            messagebox.showinfo("Success", "LED Turned ON!")
-        led_state = not led_state  # Update LED state
+        client.publish(TOPIC, color)
+        update_status(f"Sent command: {color}")
     except Exception as e:
         update_status(f"Failed to send message: {str(e)}")
 
@@ -65,21 +57,31 @@ def check_connection():
 def setup_gui():
     global root, status_label
     root = tk.Tk()
-    root.title("Test Connection GUI")
+    root.title("LED Debugger GUI")
 
     # Status Label
     status_label = tk.Label(root, text="Status: Disconnected", font=("Arial", 12))
     status_label.pack(pady=10)
 
-    # Buttons
+    # Buttons for connecting and disconnecting
     connect_button = tk.Button(root, text="Connect to ESP32", font=("Arial", 12), command=connect_esp32)
     connect_button.pack(pady=5)
 
     disconnect_button = tk.Button(root, text="Disconnect ESP32", font=("Arial", 12), command=disconnect_esp32)
     disconnect_button.pack(pady=5)
 
-    toggle_button = tk.Button(root, text="LED Toggle", font=("Arial", 12), command=toggle_led)
-    toggle_button.pack(pady=5)
+    # Buttons for toggling individual LEDs
+    red_button = tk.Button(root, text="Toggle Red", font=("Arial", 12), command=lambda: toggle_led("RED"))
+    red_button.pack(pady=5)
+
+    green_button = tk.Button(root, text="Toggle Green", font=("Arial", 12), command=lambda: toggle_led("GREEN"))
+    green_button.pack(pady=5)
+
+    blue_button = tk.Button(root, text="Toggle Blue", font=("Arial", 12), command=lambda: toggle_led("BLUE"))
+    blue_button.pack(pady=5)
+
+    white_button = tk.Button(root, text="Toggle White", font=("Arial", 12), command=lambda: toggle_led("WHITE"))
+    white_button.pack(pady=5)
 
     # Start real-time status monitoring
     check_connection()
