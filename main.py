@@ -12,7 +12,7 @@ led_blue = Pin(4, Pin.OUT)  # Blue LED on D4
 led_green = Pin(5, Pin.OUT)  # Green LED on D5
 led_white = Pin(18, Pin.OUT)  # White LED on D18
 
-# Turn off all LEDs
+# Turn all LEDs off
 def turn_off_all():
     led_red.value(0)
     led_blue.value(0)
@@ -21,17 +21,26 @@ def turn_off_all():
 
 # Callback for receiving MQTT messages
 def mqtt_callback(topic, msg):
-    print(f"Received message on {topic.decode()}: {msg.decode()}")
-    turn_off_all()  # Turn off all LEDs first
-    if msg.decode() == "RED":
+    command = msg.decode()
+    print(f"Received message: {command}")
+
+    if command == "RED_ON":
         led_red.value(1)  # Turn on Red LED
-    elif msg.decode() == "BLUE":
+    elif command == "RED_OFF":
+        led_red.value(0)  # Turn off Red LED
+    elif command == "BLUE_ON":
         led_blue.value(1)  # Turn on Blue LED
-    elif msg.decode() == "GREEN":
+    elif command == "BLUE_OFF":
+        led_blue.value(0)  # Turn off Blue LED
+    elif command == "GREEN_ON":
         led_green.value(1)  # Turn on Green LED
-    elif msg.decode() == "WHITE":
+    elif command == "GREEN_OFF":
+        led_green.value(0)  # Turn off Green LED
+    elif command == "WHITE_ON":
         led_white.value(1)  # Turn on White LED
-    elif msg.decode() == "OFF":
+    elif command == "WHITE_OFF":
+        led_white.value(0)  # Turn off White LED
+    elif command == "ALL_OFF":
         turn_off_all()  # Turn off all LEDs
 
 # Connect to the MQTT broker
