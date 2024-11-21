@@ -10,6 +10,14 @@ TOPIC = "led/control"
 client = mqtt.Client()
 is_connected = False
 
+# LED states
+led_states = {
+    "RED": False,
+    "BLUE": False,
+    "GREEN": False,
+    "WHITE": False,
+}
+
 # Functions for MQTT communication
 def connect_esp32():
     global is_connected
@@ -35,8 +43,15 @@ def toggle_led(color):
         return
 
     try:
-        client.publish(TOPIC, color)
-        update_status(f"Sent command: {color}")
+        # Determine ON or OFF command
+        if led_states[color]:
+            client.publish(TOPIC, f"{color}_OFF")
+            led_states[color] = False
+            update_status(f"Turned {color} OFF")
+        else:
+            client.publish(TOPIC, f"{color}_ON")
+            led_states[color] = True
+            update_status(f"Turned {color} ON")
     except Exception as e:
         update_status(f"Failed to send message: {str(e)}")
 
