@@ -8,18 +8,16 @@ WIFI_PASSWORD = "modernnest392"
 
 # Initialize all LEDs and turn them OFF
 def initialize_leds():
-    led_red = Pin(2, Pin.OUT)  # Red LED on D2
+    led_red = Pin(21, Pin.OUT)  # Red LED now on D21
     led_blue = Pin(4, Pin.OUT)  # Blue LED on D4
     led_green = Pin(5, Pin.OUT)  # Green LED on D5
     led_white = Pin(18, Pin.OUT)  # White LED on D18
-    onboard_led = Pin(2, Pin.OUT)  # Onboard LED (some boards use D2)
 
     # Turn OFF all LEDs
     led_red.value(0)
     led_blue.value(0)
     led_green.value(0)
     led_white.value(0)
-    onboard_led.value(0)
 
 def connect_to_wifi():
     wlan = network.WLAN(network.STA_IF)
