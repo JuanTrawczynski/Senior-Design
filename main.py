@@ -7,7 +7,7 @@ MQTT_BROKER = "192.168.1.38"
 MQTT_TOPIC = "led/control"
 
 # Configure the LED pins
-led_red = Pin(2, Pin.OUT)  # Red LED on D2
+led_red = Pin(21, Pin.OUT)  # Red LED now on D21
 led_blue = Pin(4, Pin.OUT)  # Blue LED on D4
 led_green = Pin(5, Pin.OUT)  # Green LED on D5
 led_white = Pin(18, Pin.OUT)  # White LED on D18
