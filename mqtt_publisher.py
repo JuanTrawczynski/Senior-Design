@@ -86,16 +86,16 @@ def setup_gui():
     disconnect_button.pack(pady=5)
 
     # Buttons for toggling individual LEDs
-    red_button = tk.Button(root, text="Toggle Red", font=("Arial", 12), command=lambda: toggle_led("RED"))
+    red_button = tk.Button(root, text="Toggle Green (D21)", font=("Arial", 12), command=lambda: toggle_led("RED"))
     red_button.pack(pady=5)
 
-    green_button = tk.Button(root, text="Toggle Green", font=("Arial", 12), command=lambda: toggle_led("GREEN"))
+    green_button = tk.Button(root, text="Toggle Blue (D4)", font=("Arial", 12), command=lambda: toggle_led("GREEN"))
     green_button.pack(pady=5)
 
-    blue_button = tk.Button(root, text="Toggle Blue", font=("Arial", 12), command=lambda: toggle_led("BLUE"))
+    blue_button = tk.Button(root, text="Toggle Red (D5)", font=("Arial", 12), command=lambda: toggle_led("BLUE"))
     blue_button.pack(pady=5)
 
-    white_button = tk.Button(root, text="Toggle White", font=("Arial", 12), command=lambda: toggle_led("WHITE"))
+    white_button = tk.Button(root, text="Toggle White (D18)", font=("Arial", 12), command=lambda: toggle_led("WHITE"))
     white_button.pack(pady=5)
 
     # Start real-time status monitoring
