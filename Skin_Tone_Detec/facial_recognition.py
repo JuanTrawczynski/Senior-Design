@@ -1,113 +1,75 @@
 import face_recognition
 import cv2
 import numpy as np
+import csv
 from picamera2 import Picamera2
 import time
-import pickle
 
-# Load pre-trained face encodings
-print("[INFO] loading encodings...")
-with open("encodings.pickle", "rb") as f:
-    data = pickle.loads(f.read())
-known_face_encodings = data["encodings"]
-known_face_names = data["names"]
+# Load Monk Skin Tone Reference Data
+def load_monk_skin_tones(csv_path):
+    skin_tones = {}
+    with open(csv_path, "r") as file:
+        reader = csv.reader(file)
+        next(reader)  # Skip header
+        for row in reader:
+            tone = row[0]
+            rgb = (int(row[1]), int(row[2]), int(row[3]))
+            skin_tones[tone] = rgb
+    return skin_tones
 
-# Initialize the camera
+# Function to determine closest Monk Skin Tone match
+def classify_skin_tone(face_rgb, reference_rgb):
+    min_distance = float("inf")
+    closest_tone = None
+
+    for tone, ref_rgb in reference_rgb.items():
+        distance = np.linalg.norm(np.array(face_rgb) - np.array(ref_rgb))  # Euclidean distance
+        if distance < min_distance:
+            min_distance = distance
+            closest_tone = tone
+
+    return closest_tone
+
+# Initialize
+MONK_SKIN_TONES = load_monk_skin_tones("monk_skin_tones.csv")
 picam2 = Picamera2()
-picam2.configure(picam2.create_preview_configuration(main={"format": 'XRGB8888', "size": (1920, 1080)}))
+picam2.configure(picam2.create_preview_configuration(main={"format": 'XRGB8888', "size": (640, 480)}))
 picam2.start()
 
-# Initialize our variables
-cv_scaler = 4 # this has to be a whole number
+def get_average_face_rgb(frame, face_location):
+    """Extract and compute the average RGB value of the detected face."""
+    (top, right, bottom, left) = face_location
+    face_roi = frame[top:bottom, left:right]
+    face_roi = cv2.cvtColor(face_roi, cv2.COLOR_BGR2RGB)
+    
+    avg_r = int(np.mean(face_roi[:, :, 0]))
+    avg_g = int(np.mean(face_roi[:, :, 1]))
+    avg_b = int(np.mean(face_roi[:, :, 2]))
 
-face_locations = []
-face_encodings = []
-face_names = []
-frame_count = 0
-start_time = time.time()
-fps = 0
-
-def process_frame(frame):
-    global face_locations, face_encodings, face_names
-    
-    # Resize the frame using cv_scaler to increase performance (less pixels processed, less time spent)
-    resized_frame = cv2.resize(frame, (0, 0), fx=(1/cv_scaler), fy=(1/cv_scaler))
-    
-    # Convert the image from BGR to RGB colour space, the facial recognition library uses RGB, OpenCV uses BGR
-    rgb_resized_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)
-    
-    # Find all the faces and face encodings in the current frame of video
-    face_locations = face_recognition.face_locations(rgb_resized_frame)
-    face_encodings = face_recognition.face_encodings(rgb_resized_frame, face_locations, model='large')
-    
-    face_names = []
-    for face_encoding in face_encodings:
-        # See if the face is a match for the known face(s)
-        matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
-        name = "unknown"
-        
-        # Use the known face with the smallest distance to the new face
-        face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
-        best_match_index = np.argmin(face_distances)
-        if matches[best_match_index]:
-            name = known_face_names[best_match_index]
-        face_names.append(name)
-    
-    return frame
-
-def draw_results(frame):
-    # Display the results
-    for (top, right, bottom, left), name in zip(face_locations, face_names):
-        # Scale back up face locations since the frame we detected in was scaled
-        top *= cv_scaler
-        right *= cv_scaler
-        bottom *= cv_scaler
-        left *= cv_scaler
-        
-        # Draw a box around the face
-        cv2.rectangle(frame, (left, top), (right, bottom), (244, 42, 3), 3)
-        
-        # Draw a label with a name below the face
-        cv2.rectangle(frame, (left -3, top - 35), (right+3, top), (244, 42, 3), cv2.FILLED)
-        font = cv2.FONT_HERSHEY_DUPLEX
-        cv2.putText(frame, name, (left + 6, top - 6), font, 1.0, (255, 255, 255), 1)
-    
-    return frame
-
-def calculate_fps():
-    global frame_count, start_time, fps
-    frame_count += 1
-    elapsed_time = time.time() - start_time
-    if elapsed_time > 1:
-        fps = frame_count / elapsed_time
-        frame_count = 0
-        start_time = time.time()
-    return fps
+    return (avg_r, avg_g, avg_b)
 
 while True:
-    # Capture a frame from camera
     frame = picam2.capture_array()
+    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+    face_locations = face_recognition.face_locations(rgb_frame, model="hog")
     
-    # Process the frame with the function
-    processed_frame = process_frame(frame)
-    
-    # Get the text and boxes to be drawn based on the processed frame
-    display_frame = draw_results(processed_frame)
-    
-    # Calculate and update FPS
-    current_fps = calculate_fps()
-    
-    # Attach FPS counter to the text and boxes
-    cv2.putText(display_frame, f"FPS: {current_fps:.1f}", (display_frame.shape[1] - 150, 30), 
-                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-    
-    # Display everything over the video feed.
-    cv2.imshow('Video', display_frame)
-    
-    # Break the loop and stop the script if 'q' is pressed
+    for face_location in face_locations:
+        avg_rgb = get_average_face_rgb(frame, face_location)
+        closest_tone = classify_skin_tone(avg_rgb, MONK_SKIN_TONES)
+
+        # Draw bounding box around face
+        (top, right, bottom, left) = face_location
+        cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 3)
+
+        # Display detected skin tone
+        cv2.rectangle(frame, (left, bottom + 20), (right, bottom), (0, 255, 0), cv2.FILLED)
+        cv2.putText(frame, closest_tone, (left + 6, bottom + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+
+    cv2.imshow("Skin Tone Detection", frame)
+
     if cv2.waitKey(1) == ord("q"):
         break
 
-# By breaking the loop we run this code here which closes everything
 cv2.destroyAllWindows()
 picam2.stop()
