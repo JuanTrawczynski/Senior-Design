@@ -17,26 +17,14 @@ def load_monk_skin_tones(csv_path):
             skin_tones[tone] = rgb
     return skin_tones
 
-def normalize_rgb(rgb):
-    """Normalize RGB values to eliminate brightness inconsistencies."""
-    total = sum(rgb)
-    if total == 0:
-        return rgb
-    return tuple(int((c / total) * 255) for c in rgb)
-
 def classify_skin_tone(face_rgb, reference_rgb):
     """Find the closest Monk Skin Tone based on weighted color distance."""
     min_distance = float("inf")
     closest_tone = None
 
-    # Normalize input RGB to account for brightness
-    face_rgb = normalize_rgb(face_rgb)
-
     for tone, ref_rgb in reference_rgb.items():
-        ref_rgb = normalize_rgb(ref_rgb)
-
-        # Weighted Euclidean Distance Calculation
-        r_weight, g_weight, b_weight = 0.6, 0.3, 0.1
+        # Adjusted Color Weighting
+        r_weight, g_weight, b_weight = 0.5, 0.35, 0.15
         distance = np.sqrt(
             (r_weight * (face_rgb[0] - ref_rgb[0]))**2 +
             (g_weight * (face_rgb[1] - ref_rgb[1]))**2 +
@@ -56,11 +44,15 @@ picam2.configure(picam2.create_preview_configuration(main={"format": 'XRGB8888',
 picam2.start()
 
 def get_average_face_rgb(frame, face_location):
-    """Extract and compute the average RGB value of the detected face."""
+    """Extract and compute the average RGB value of the detected face, excluding edges."""
     (top, right, bottom, left) = face_location
     face_roi = frame[top:bottom, left:right]
     face_roi = cv2.cvtColor(face_roi, cv2.COLOR_BGR2RGB)
-    
+
+    # Crop inner 80% of the face to avoid edges
+    h, w, _ = face_roi.shape
+    face_roi = face_roi[int(h * 0.1):int(h * 0.9), int(w * 0.1):int(w * 0.9)]
+
     avg_r = int(np.mean(face_roi[:, :, 0]))
     avg_g = int(np.mean(face_roi[:, :, 1]))
     avg_b = int(np.mean(face_roi[:, :, 2]))
@@ -84,6 +76,9 @@ while True:
         # Display detected skin tone
         cv2.rectangle(frame, (left, bottom + 20), (right, bottom), (0, 255, 0), cv2.FILLED)
         cv2.putText(frame, closest_tone, (left + 6, bottom + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+
+        # Debugging Output
+        print(f"Detected RGB: {avg_rgb} -> Classified as: {closest_tone}")
 
     cv2.imshow("Skin Tone Detection", cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
