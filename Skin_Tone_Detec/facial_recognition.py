@@ -17,13 +17,32 @@ def load_monk_skin_tones(csv_path):
             skin_tones[tone] = rgb
     return skin_tones
 
-# Function to determine closest Monk Skin Tone match
+def normalize_rgb(rgb):
+    """Normalize RGB values to eliminate brightness inconsistencies."""
+    total = sum(rgb)
+    if total == 0:
+        return rgb
+    return tuple(int((c / total) * 255) for c in rgb)
+
 def classify_skin_tone(face_rgb, reference_rgb):
+    """Find the closest Monk Skin Tone based on weighted color distance."""
     min_distance = float("inf")
     closest_tone = None
 
+    # Normalize input RGB to account for brightness
+    face_rgb = normalize_rgb(face_rgb)
+
     for tone, ref_rgb in reference_rgb.items():
-        distance = np.linalg.norm(np.array(face_rgb) - np.array(ref_rgb))  # Euclidean distance
+        ref_rgb = normalize_rgb(ref_rgb)
+
+        # Weighted Euclidean Distance Calculation
+        r_weight, g_weight, b_weight = 0.6, 0.3, 0.1
+        distance = np.sqrt(
+            (r_weight * (face_rgb[0] - ref_rgb[0]))**2 +
+            (g_weight * (face_rgb[1] - ref_rgb[1]))**2 +
+            (b_weight * (face_rgb[2] - ref_rgb[2]))**2
+        )
+
         if distance < min_distance:
             min_distance = distance
             closest_tone = tone
@@ -66,7 +85,7 @@ while True:
         cv2.rectangle(frame, (left, bottom + 20), (right, bottom), (0, 255, 0), cv2.FILLED)
         cv2.putText(frame, closest_tone, (left + 6, bottom + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
 
-    cv2.imshow("Skin Tone Detection", frame)
+    cv2.imshow("Skin Tone Detection", cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
     if cv2.waitKey(1) == ord("q"):
         break
