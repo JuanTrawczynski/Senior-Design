@@ -42,18 +42,18 @@ picam2.configure(picam2.create_preview_configuration(main={"format": 'XRGB8888',
 picam2.start()
 
 def get_average_face_rgb(frame, face_location):
-    """Extract and compute the average RGB value of the detected face, excluding edges."""
+    """Extract and compute the average RGB value from the forehead region."""
     (top, right, bottom, left) = face_location
     face_roi = frame[top:bottom, left:right]
     face_roi = cv2.cvtColor(face_roi, cv2.COLOR_BGR2RGB)
 
-    # Crop inner 80% of the face to avoid edges
+    # Focus only on the top 30% of the face (forehead region)
     h, w, _ = face_roi.shape
-    face_roi = face_roi[int(h * 0.1):int(h * 0.9), int(w * 0.1):int(w * 0.9)]
+    forehead_roi = face_roi[:int(h * 0.3), :]  # Extract top 30% of the face
 
-    avg_r = int(np.mean(face_roi[:, :, 0]))
-    avg_g = int(np.mean(face_roi[:, :, 1]))
-    avg_b = int(np.mean(face_roi[:, :, 2]))
+    avg_r = int(np.mean(forehead_roi[:, :, 0]))
+    avg_g = int(np.mean(forehead_roi[:, :, 1]))
+    avg_b = int(np.mean(forehead_roi[:, :, 2]))
 
     return (avg_r, avg_g, avg_b)
 
