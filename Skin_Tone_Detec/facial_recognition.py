@@ -18,17 +18,15 @@ def load_monk_skin_tones(csv_path):
     return skin_tones
 
 def classify_skin_tone(face_rgb, reference_rgb):
-    """Find the closest Monk Skin Tone based on weighted color distance."""
+    """Find the closest Monk Skin Tone based on Euclidean distance without RGB weighting."""
     min_distance = float("inf")
     closest_tone = None
 
     for tone, ref_rgb in reference_rgb.items():
-        # Adjusted Color Weighting
-        r_weight, g_weight, b_weight = 0.5, 0.35, 0.15
         distance = np.sqrt(
-            (r_weight * (face_rgb[0] - ref_rgb[0]))**2 +
-            (g_weight * (face_rgb[1] - ref_rgb[1]))**2 +
-            (b_weight * (face_rgb[2] - ref_rgb[2]))**2
+            (face_rgb[0] - ref_rgb[0])**2 +
+            (face_rgb[1] - ref_rgb[1])**2 +
+            (face_rgb[2] - ref_rgb[2])**2
         )
 
         if distance < min_distance:
