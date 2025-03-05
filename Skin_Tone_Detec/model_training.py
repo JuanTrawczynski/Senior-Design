@@ -1,79 +1,69 @@
-import os
 import cv2
+import os
 import numpy as np
-from imutils import paths
-import face_recognition
 import csv
 
-# Path to dataset
-DATASET_PATH = "dataset"
-CSV_OUTPUT = "monk_skin_tones.csv"
+# Dataset directory
+DATASET_DIR = "dataset"
+OUTPUT_CSV = "monk_skin_tones.csv"
 
-def get_average_rgb(image, face_box):
-    """
-    Extracts the Region of Interest (ROI) and calculates the average RGB values.
-    """
-    (top, right, bottom, left) = face_box
+def extract_rgb_samples(image_path):
+    """ Extract multiple RGB values from different regions of the face. """
+    img = cv2.imread(image_path)
+    img = cv2.resize(img, (400, 400))  # Ensure consistency in size
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # Convert BGR to RGB
 
-    # Extract the face ROI
-    face_roi = image[top:bottom, left:right]
+    # Define ROI regions for sampling (forehead, cheeks, chin)
+    h, w, _ = img.shape
+    sample_regions = [
+        (int(h * 0.2), int(w * 0.4)),  # Forehead center
+        (int(h * 0.3), int(w * 0.2)),  # Left cheek
+        (int(h * 0.3), int(w * 0.8)),  # Right cheek
+        (int(h * 0.6), int(w * 0.4)),  # Chin center
+    ]
 
-    # Convert to RGB (OpenCV loads images in BGR format)
-    face_roi = cv2.cvtColor(face_roi, cv2.COLOR_BGR2RGB)
+    rgb_samples = []
+    for y, x in sample_regions:
+        sample_rgb = img_rgb[y, x]  # Extract RGB at sample point
+        rgb_samples.append(sample_rgb)
 
-    # Compute the mean RGB values
-    avg_r = int(np.mean(face_roi[:, :, 0]))
-    avg_g = int(np.mean(face_roi[:, :, 1]))
-    avg_b = int(np.mean(face_roi[:, :, 2]))
-
-    return avg_r, avg_g, avg_b
+    return rgb_samples
 
 def process_dataset():
-    """
-    Processes all images in the dataset, extracts RGB values, and calculates the average per Monk Skin Tone.
-    """
-    skin_tone_data = {}
+    """ Process dataset, extract multiple RGB values per Monk Skin Tone, and save to CSV. """
+    monk_tone_data = []
 
-    # Loop through each Monk Skin Tone folder (monk_1, monk_2, ..., monk_10)
-    for monk_tone in sorted(os.listdir(DATASET_PATH)):
-        monk_path = os.path.join(DATASET_PATH, monk_tone)
-        
-        if not os.path.isdir(monk_path):
-            continue
+    for monk_tone in sorted(os.listdir(DATASET_DIR)):  # Iterate over monk_1, monk_2, ..., monk_10
+        monk_tone_dir = os.path.join(DATASET_DIR, monk_tone)
 
-        image_paths = list(paths.list_images(monk_path))
-        rgb_values = []
+        if not os.path.isdir(monk_tone_dir):
+            continue  # Skip if not a directory
 
-        for image_path in image_paths:
-            print(f"[INFO] Processing {image_path}")
+        for subject in os.listdir(monk_tone_dir):  # Iterate over subject folders
+            subject_dir = os.path.join(monk_tone_dir, subject)
 
-            # Load image
-            image = cv2.imread(image_path)
-            rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            if not os.path.isdir(subject_dir):
+                continue  # Skip non-folder files
 
-            # Detect faces
-            face_boxes = face_recognition.face_locations(rgb, model="hog")
+            for img_file in os.listdir(subject_dir):  # Iterate over images
+                img_path = os.path.join(subject_dir, img_file)
 
-            if len(face_boxes) > 0:
-                avg_rgb = get_average_rgb(image, face_boxes[0])  # Process first detected face
-                rgb_values.append(avg_rgb)
+                try:
+                    rgb_samples = extract_rgb_samples(img_path)
 
-        # Compute average RGB values for this Monk Skin Tone category
-        if rgb_values:
-            avg_r = int(np.mean([rgb[0] for rgb in rgb_values]))
-            avg_g = int(np.mean([rgb[1] for rgb in rgb_values]))
-            avg_b = int(np.mean([rgb[2] for rgb in rgb_values]))
+                    for rgb in rgb_samples:
+                        monk_tone_data.append([monk_tone, rgb[0], rgb[1], rgb[2]])  # Save multiple samples
 
-            skin_tone_data[monk_tone] = (avg_r, avg_g, avg_b)
+                except Exception as e:
+                    print(f"Error processing {img_path}: {e}")
 
-    # Save to CSV file
-    with open(CSV_OUTPUT, "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["Monk_Tone", "Avg_R", "Avg_G", "Avg_B"])
-        for tone, rgb in skin_tone_data.items():
-            writer.writerow([tone, rgb[0], rgb[1], rgb[2]])
+    # Save data to CSV
+    with open(OUTPUT_CSV, "w", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerow(["Monk_Tone", "R", "G", "B"])  # Header
+        writer.writerows(monk_tone_data)
 
-    print(f"[INFO] Processing complete. Real RGB values saved to {CSV_OUTPUT}")
+    print(f"Processing complete. Extracted RGB samples saved to {OUTPUT_CSV}.")
 
 if __name__ == "__main__":
     process_dataset()
