@@ -15,37 +15,30 @@ def load_monk_skin_tones(csv_path):
         for row in reader:
             tone = row[0]
             rgb = (int(row[1]), int(row[2]), int(row[3]))
-            skin_tones[tone] = rgb
+
+            # Store multiple RGB values per tone
+            if tone not in skin_tones:
+                skin_tones[tone] = []
+            skin_tones[tone].append(rgb)
+
     return skin_tones
 
-# **NEW: Instead of fully normalizing, just scale values slightly**
-def adjust_rgb(rgb):
-    r, g, b = rgb
-    brightness_factor = 255 / max(r + g + b, 1)  # Prevent divide by zero
-    return (
-        int(r * brightness_factor * 0.9),  
-        int(g * brightness_factor * 0.9),  
-        int(b * brightness_factor * 0.9)   
-    )
-
-# **NEW: Return to direct Euclidean RGB comparison**
 def classify_skin_tone(face_rgb, reference_rgb):
+    """Find the closest Monk Skin Tone by comparing against multiple RGB samples."""
     min_distance = float("inf")
     closest_tone = None
 
-    for tone, ref_rgb in reference_rgb.items():
-        # Adjust skin tone reference slightly (avoiding over-normalization)
-        adj_face_rgb = adjust_rgb(face_rgb)
+    for tone, rgb_samples in reference_rgb.items():
+        for ref_rgb in rgb_samples:
+            distance = np.sqrt(
+                (face_rgb[0] - ref_rgb[0])**2 +
+                (face_rgb[1] - ref_rgb[1])**2 +
+                (face_rgb[2] - ref_rgb[2])**2
+            )
 
-        distance = np.sqrt(
-            (adj_face_rgb[0] - ref_rgb[0])**2 +
-            (adj_face_rgb[1] - ref_rgb[1])**2 +
-            (adj_face_rgb[2] - ref_rgb[2])**2
-        )
-
-        if distance < min_distance:
-            min_distance = distance
-            closest_tone = tone
+            if distance < min_distance:
+                min_distance = distance
+                closest_tone = tone
 
     return closest_tone
 
@@ -66,7 +59,7 @@ def get_average_face_rgb(frame, face_location):
     if not USE_PICAMERA:
         face_roi = cv2.cvtColor(face_roi, cv2.COLOR_BGR2RGB)  # Convert only for webcam input
 
-    # **Forehead ROI remains at 40%**
+    # Focus only on the forehead
     h, w, _ = face_roi.shape
     forehead_roi = face_roi[:int(h * 0.4), :]
 
@@ -79,6 +72,9 @@ def get_average_face_rgb(frame, face_location):
 # Use OpenCV VideoCapture if using a webcam
 if not USE_PICAMERA:
     cap = cv2.VideoCapture(0)
+
+# Frame Buffer for Smoother Classification
+classification_buffer = []
 
 while True:
     if USE_PICAMERA:
@@ -100,16 +96,23 @@ while True:
         avg_rgb = get_average_face_rgb(frame, face_location)
         closest_tone = classify_skin_tone(avg_rgb, MONK_SKIN_TONES)
 
+        # Store in buffer and take median classification
+        classification_buffer.append(closest_tone)
+        if len(classification_buffer) > 5:  # Keep only last 5 readings
+            classification_buffer.pop(0)
+
+        most_common_tone = max(set(classification_buffer), key=classification_buffer.count)
+
         # Draw bounding box around face
         (top, right, bottom, left) = face_location
         cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 3)
 
         # Display detected skin tone
         cv2.rectangle(frame, (left, bottom + 20), (right, bottom), (0, 255, 0), cv2.FILLED)
-        cv2.putText(frame, closest_tone, (left + 6, bottom + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+        cv2.putText(frame, most_common_tone, (left + 6, bottom + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
 
         # Debugging Output
-        print(f"Detected RGB: {avg_rgb} -> Adjusted: {adjust_rgb(avg_rgb)} -> Classified as: {closest_tone}")
+        print(f"Detected RGB: {avg_rgb} -> Classified as: {most_common_tone}")
 
     cv2.imshow("Skin Tone Detection", frame)
 
