@@ -1,3 +1,26 @@
 wget -O install_pivariety_pkgs.sh https://github.com/ArduCAM/Arducam-Pivariety-V4L2-Driver/raw/main/install_pivariety_pkgs.sh
 chmod +x install_pivariety_pkgs.sh
 ./install_pivariety_pkgs.sh -p libcamera_dev
+
+
+
+>>> %Run image_capture.py
+Capturing a photo for Camera_Test...
+[0:52:05.303611004] [3829]  INFO Camera camera_manager.cpp:327 libcamera v0.4.0+78-818d45eb-dirty (2025-02-14T02:03:07GMT)
+[0:52:05.365705428] [3832]  WARN RPiSdn sdn.cpp:40 Using legacy SDN tuning - please consider moving SDN inside rpi.denoise
+[0:52:05.367234453] [3832]  WARN RPI vc4.cpp:401 Mismatch between Unicam and CamHelper for embedded data usage!
+[0:52:05.367977521] [3832]  INFO RPI vc4.cpp:455 Registered camera /base/soc/i2c0mux/i2c@1/imx477@1a to Unicam device /dev/media2 and ISP device /dev/media0
+[0:52:05.368081168] [3832]  INFO RPI pipeline_base.cpp:1160 Using configuration file '/usr/share/libcamera/pipeline/rpi/vc4/rpi_apps.yaml'
+Made X/EGL preview window
+Mode selection for 2028:1520:12:P
+    SRGGB10_CSI2P,1332x990/0 - Score: 3456.22
+    SRGGB12_CSI2P,2028x1080/0 - Score: 1083.84
+    SRGGB12_CSI2P,2028x1520/0 - Score: 0
+    SRGGB12_CSI2P,4056x3040/0 - Score: 887
+[0:52:05.487248758] [3829]  INFO Camera camera.cpp:1202 configuring streams: (0) 2028x1520-YUV420 (1) 2028x1520-SBGGR12_CSI2P
+[0:52:05.488188955] [3832]  INFO RPI vc4.cpp:630 Sensor: /base/soc/i2c0mux/i2c@1/imx477@1a - Selected sensor format: 2028x1520-SBGGR12_1X12 - Selected unicam format: 2028x1520-pBCC
+[0:52:06.584148750] [3832]  WARN V4L2 v4l2_videodevice.cpp:2150 /dev/video0[13:cap]: Dequeue timer of 1000000.00us has expired!
+[0:52:06.584233619] [3832] ERROR RPI pipeline_base.cpp:1429 Camera frontend has timed out!
+[0:52:06.584246064] [3832] ERROR RPI pipeline_base.cpp:1430 Please check that your camera sensor connector is attached securely.
+[0:52:06.584258545] [3832] ERROR RPI pipeline_base.cpp:1431 Alternatively, try another cable and/or sensor.
+ERROR: Device timeout detected, attempting a restart!!!
