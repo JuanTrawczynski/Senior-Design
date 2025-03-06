@@ -1,61 +1,36 @@
-import cv2
 import os
 from datetime import datetime
 
 # Change this to the name of the person you're photographing
 PERSON_NAME = "Monk #3"
 
+# Define paths
+dataset_folder = "dataset"
+tuning_file = "/home/chroma/Arducam-477P-Pi4.json"
+
 def create_folder(name):
-    dataset_folder = "dataset"
+    """Creates a folder for storing captured images."""
     if not os.path.exists(dataset_folder):
         os.makedirs(dataset_folder)
-    
+
     person_folder = os.path.join(dataset_folder, name)
     if not os.path.exists(person_folder):
         os.makedirs(person_folder)
     return person_folder
 
-def capture_photos(name):
+def capture_photo(name):
+    """Captures an image using libcamera-still with the tuning file."""
     folder = create_folder(name)
-
-    # Initialize USB Webcam (0 is typically the default camera)
-    cap = cv2.VideoCapture(0)
     
-    if not cap.isOpened():
-        print("Error: Could not access webcam.")
-        return
-
-    print(f"Taking photos for {name}. Press SPACE to capture, 'q' to quit.")
-
-    photo_count = 0
-
-    while True:
-        # Capture frame from webcam
-        ret, frame = cap.read()
-        if not ret:
-            print("Failed to grab frame.")
-            break
-
-        # Display the frame
-        cv2.imshow('Capture', frame)
-
-        key = cv2.waitKey(1) & 0xFF
-
-        if key == ord(' '):  # Space key
-            photo_count += 1
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"{name}_{timestamp}.jpg"
-            filepath = os.path.join(folder, filename)
-            cv2.imwrite(filepath, frame)
-            print(f"Photo {photo_count} saved: {filepath}")
-
-        elif key == ord('q'):  # Q key
-            break
-
-    # Clean up
-    cap.release()
-    cv2.destroyAllWindows()
-    print(f"Photo capture completed. {photo_count} photos saved for {name}.")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{name}_{timestamp}.jpg"
+    filepath = os.path.join(folder, filename)
+    
+    # Capture image using libcamera-still with the tuning file
+    os.system(f"libcamera-still -t 1000 --tuning-file {tuning_file} -o {filepath}")
+    
+    print(f"Photo saved: {filepath}")
 
 if __name__ == "__main__":
-    capture_photos(PERSON_NAME)
+    print(f"Capturing a photo for {PERSON_NAME}...")
+    capture_photo(PERSON_NAME)
