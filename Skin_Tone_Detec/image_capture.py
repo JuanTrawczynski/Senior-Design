@@ -1,50 +1,63 @@
 import os
 import cv2
 from datetime import datetime
+from picamera2 import Picamera2
 
+# Set tuning file path for Arducam
+TUNING_FILE = "/home/chroma/Arducam-477P-Pi4.json"
+
+# Folder to save captured images
+DATASET_FOLDER = "dataset"
 PERSON_NAME = "Camera_Test"
-dataset_folder = "dataset"
-tuning_file = "/home/chroma/Arducam-477P-Pi4.json"
 
+# Create dataset folder if it doesn't exist
 def create_folder(name):
-    if not os.path.exists(dataset_folder):
-        os.makedirs(dataset_folder)
+    if not os.path.exists(DATASET_FOLDER):
+        os.makedirs(DATASET_FOLDER)
 
-    person_folder = os.path.join(dataset_folder, name)
+    person_folder = os.path.join(DATASET_FOLDER, name)
     if not os.path.exists(person_folder):
         os.makedirs(person_folder)
     return person_folder
 
-def capture_photo(name):
-    folder = create_folder(name)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{name}_{timestamp}.jpg"
-    filepath = os.path.join(folder, filename)
+# Initialize PiCamera2 with Arducam tuning file
+def initialize_camera():
+    picam2 = Picamera2(tuning=TUNING_FILE)
+    config = picam2.create_preview_configuration(main={"size": (1280, 720)})
+    picam2.configure(config)
+    picam2.start()
+    return picam2
 
-    # Wait for camera initialization
-    os.system("sleep 2")
+# Capture images on Space key press, quit on "Q"
+def capture_photos():
+    folder = create_folder(PERSON_NAME)
+    picam2 = initialize_camera()
 
-    # Capture image using libcamera-still with tuning file
-    os.system(f"libcamera-still -t 2000 --tuning-file {tuning_file} -o {filepath}")
-    print(f"Photo saved: {filepath}")
+    print("Press SPACE to capture an image, 'Q' to quit.")
 
-    return filepath
+    while True:
+        frame = picam2.capture_array()
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)  # Convert to OpenCV format
 
+        cv2.imshow("Live Camera Feed", frame)
+
+        key = cv2.waitKey(1) & 0xFF
+
+        if key == ord(' '):  # Space key to capture
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"{PERSON_NAME}_{timestamp}.jpg"
+            filepath = os.path.join(folder, filename)
+            cv2.imwrite(filepath, frame)
+            print(f"Photo saved: {filepath}")
+
+        elif key == ord('q'):  # 'Q' key to quit
+            print("Exiting program...")
+            break
+
+    # Cleanup
+    cv2.destroyAllWindows()
+    picam2.stop()
+
+# Run the program
 if __name__ == "__main__":
-    print(f"Capturing a photo for {PERSON_NAME}...")
-    photo_path = capture_photo(PERSON_NAME)
-
-    # Display the captured image
-    image = cv2.imread(photo_path)
-    if image is not None:
-        cv2.imshow("Captured Image", image)
-        print("Press 'q' to close the window.")
-        
-        # Wait for "q" key to close the window
-        while True:
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
-        
-        cv2.destroyAllWindows()
-    else:
-        print("Error: Could not load the captured image.")
+    capture_photos()
