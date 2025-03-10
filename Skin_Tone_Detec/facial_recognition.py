@@ -2,9 +2,18 @@ import face_recognition
 import cv2
 import numpy as np
 import csv
+import os
+from datetime import datetime
+from picamera2 import Picamera2
 
-# Detect if using Pi Camera or Webcam
-USE_PICAMERA = False  # Set to True if using Pi Camera
+# Set tuning file path for Arducam
+TUNING_FILE = "/home/chroma/Arducam-477P-Pi4.json"
+
+# Directory to save captured images
+SAVE_PATH = "/home/chroma/Desktop/Face Recognition/SD_Midterm_Test"
+
+# Ensure the folder exists
+os.makedirs(SAVE_PATH, exist_ok=True)
 
 # Load Monk Skin Tone Reference Data
 def load_monk_skin_tones(csv_path):
@@ -42,22 +51,19 @@ def classify_skin_tone(face_rgb, reference_rgb):
 
     return closest_tone
 
-# Initialize
-MONK_SKIN_TONES = load_monk_skin_tones("monk_skin_tones.csv")
-
-if USE_PICAMERA:
-    from picamera2 import Picamera2
-    picam2 = Picamera2()
-    picam2.configure(picam2.create_preview_configuration(main={"format": 'XRGB8888', "size": (640, 480)}))
+# Initialize camera with tuning file
+def initialize_camera():
+    picam2 = Picamera2(tuning=TUNING_FILE)
+    config = picam2.create_preview_configuration(main={"size": (1280, 960)})
+    picam2.configure(config)
     picam2.start()
+    return picam2
 
+# Get average RGB from forehead region
 def get_average_face_rgb(frame, face_location):
     """Extract and compute the average RGB value from the forehead region."""
     (top, right, bottom, left) = face_location
     face_roi = frame[top:bottom, left:right]
-
-    if not USE_PICAMERA:
-        face_roi = cv2.cvtColor(face_roi, cv2.COLOR_BGR2RGB)  # Convert only for webcam input
 
     # Focus only on the forehead
     h, w, _ = face_roi.shape
@@ -69,28 +75,20 @@ def get_average_face_rgb(frame, face_location):
 
     return (avg_r, avg_g, avg_b)
 
-# Use OpenCV VideoCapture if using a webcam
-if not USE_PICAMERA:
-    cap = cv2.VideoCapture(0)
+# Initialize camera and skin tone data
+MONK_SKIN_TONES = load_monk_skin_tones("monk_skin_tones.csv")
+picam2 = initialize_camera()
 
 # Frame Buffer for Smoother Classification
 classification_buffer = []
 
+print("Press 'SPACE' to capture an image. Press 'Q' to exit.")
+
 while True:
-    if USE_PICAMERA:
-        frame = picam2.capture_array()
-    else:
-        ret, frame = cap.read()
-        if not ret:
-            print("Failed to grab frame")
-            break
+    frame = picam2.capture_array()
+    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)  # Convert to OpenCV format
 
-    if not USE_PICAMERA:
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # Convert for webcam only
-    else:
-        rgb_frame = frame
-
-    face_locations = face_recognition.face_locations(rgb_frame, model="hog")
+    face_locations = face_recognition.face_locations(frame, model="hog")
     
     for face_location in face_locations:
         avg_rgb = get_average_face_rgb(frame, face_location)
@@ -116,12 +114,16 @@ while True:
 
     cv2.imshow("Skin Tone Detection", frame)
 
-    if cv2.waitKey(1) == ord("q"):
+    key = cv2.waitKey(1) & 0xFF
+
+    if key == ord("q"):
         break
 
-cv2.destroyAllWindows()
+    elif key == ord(" "):  # Spacebar to capture an image
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        image_filename = f"{SAVE_PATH}/captured_{timestamp}.jpg"
+        cv2.imwrite(image_filename, frame)
+        print(f"Image saved to {image_filename}")
 
-if USE_PICAMERA:
-    picam2.stop()
-else:
-    cap.release()
+cv2.destroyAllWindows()
+picam2.stop()
