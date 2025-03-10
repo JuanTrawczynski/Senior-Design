@@ -23,7 +23,7 @@ def create_folder(name):
 # Initialize PiCamera2 with Arducam tuning file
 def initialize_camera():
     picam2 = Picamera2(tuning=TUNING_FILE)
-    config = picam2.create_preview_configuration(main={"size": (1280, 720)})
+    config = picam2.create_preview_configuration(main={"size": (1280, 960)})
     picam2.configure(config)
     picam2.start()
     return picam2
