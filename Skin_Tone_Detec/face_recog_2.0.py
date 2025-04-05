@@ -74,6 +74,9 @@ def initialize_camera():
     picam2.start()
     return picam2
 
+# Call the camera initialization
+picam2 = initialize_camera()
+
 # Load Reference Data
 reference_rgb = load_skin_tone_dataset(CSV_PATH)
 
