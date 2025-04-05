@@ -11,7 +11,7 @@ import paho.mqtt.client as mqtt
 # Configurations
 TUNING_FILE = "/home/chroma/Arducam-477P-Pi4.json"
 CSV_PATH = "/home/chroma/Desktop/Face Recognition/monk_skin_tones.csv"
-MQTT_BROKER = "192.168.1.48"
+MQTT_BROKER = "localhost"
 MQTT_PORT = 1883
 MQTT_TOPIC = "wled/main/api"
 SAMPLE_COUNT = 7
