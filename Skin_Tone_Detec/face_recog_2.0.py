@@ -67,11 +67,12 @@ mqtt_client = mqtt.Client()
 mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
 
 # Setup Camera
-picam2 = Picamera2(tuning=TUNING_FILE)
-picam2.configure(picam2.create_preview_configuration(main={"format": 'XRGB8888', "size": (640, 480)}))
-picam2.set_controls({"AwbEnable": True, "ExposureTime": 5000, "AnalogueGain": 1.0})
-picam2.start()
-time.sleep(2)
+def initialize_camera():
+    picam2 = Picamera2(tuning=TUNING_FILE)
+    config = picam2.create_preview_configuration(main={"size": (1280, 960)})
+    picam2.configure(config)
+    picam2.start()
+    return picam2
 
 # Load Reference Data
 reference_rgb = load_skin_tone_dataset(CSV_PATH)
