@@ -86,8 +86,7 @@ print("Press 'R' to reset, 'Q' to quit.")
 
 while True:
     frame = picam2.capture_array()
-    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    face_locations = face_recognition.face_locations(rgb_frame)
+    face_locations = face_recognition.face_locations(frame)  # Already RGB
 
     for face_location in face_locations:
         forehead_rgb = get_forehead_rgb(frame, face_location)
@@ -106,7 +105,7 @@ while True:
     cv2.putText(frame, f"Samples: {len(skin_tone_samples)}/{SAMPLE_COUNT}", (10, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
 
-    cv2.imshow("Skin Tone Detection", frame)
+    cv2.imshow("Skin Tone Detection", cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
     key = cv2.waitKey(1) & 0xFF
 
     if key == ord("q"):
