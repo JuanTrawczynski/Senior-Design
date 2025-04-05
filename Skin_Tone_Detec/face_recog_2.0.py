@@ -111,7 +111,8 @@ while True:
     cv2.putText(frame, f"Samples: {len(skin_tone_samples)}/{SAMPLE_COUNT}", (10, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
 
-    cv2.imshow("Skin Tone Detection", frame)  # Display in BGR format
+    bgr_frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
+    cv2.imshow("Skin Tone Detection", bgr_frame)
     key = cv2.waitKey(1) & 0xFF
 
     if key == ord("q"):
