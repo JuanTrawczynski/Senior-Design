@@ -84,28 +84,34 @@ reference_rgb = load_skin_tone_dataset(CSV_PATH)
 skin_tone_samples = []
 print("Press 'R' to reset, 'Q' to quit.")
 
+frame = picam2.capture_array()
+rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+face_locations = face_recognition.face_locations(rgb_frame)
+
 while True:
     frame = picam2.capture_array()
-    face_locations = face_recognition.face_locations(frame)  # Already RGB
+    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    face_locations = face_recognition.face_locations(rgb_frame)
 
     for face_location in face_locations:
-        forehead_rgb = get_forehead_rgb(frame, face_location)
+        forehead_rgb = get_forehead_rgb(frame, face_location)  # You can keep BGR here if convert later
         detected_tone = classify_skin_tone(forehead_rgb, reference_rgb)
         print(f"Detected RGB: {forehead_rgb} -> Classified as: {detected_tone}")
 
         # Draw face box and label
         top, right, bottom, left = face_location
         cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
-        cv2.putText(frame, detected_tone, (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+        cv2.putText(frame, detected_tone, (left, top - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
         if len(skin_tone_samples) < SAMPLE_COUNT:
             skin_tone_samples.append(detected_tone)
 
-    # Display count status
+    # Display sample count
     cv2.putText(frame, f"Samples: {len(skin_tone_samples)}/{SAMPLE_COUNT}", (10, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
 
-    cv2.imshow("Skin Tone Detection", cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+    cv2.imshow("Skin Tone Detection", frame)  # Display in BGR format
     key = cv2.waitKey(1) & 0xFF
 
     if key == ord("q"):
