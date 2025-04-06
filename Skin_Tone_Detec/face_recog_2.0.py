@@ -3,8 +3,10 @@ import cv2
 import numpy as np
 import csv
 import os
-from datetime import datetime
+import time
 from picamera2 import Picamera2
+from libcamera import controls
+import paho.mqtt.client as mqtt
 
 # Configurations
 TUNING_FILE = "/home/chroma/Arducam-477P-Pi4.json"
@@ -22,9 +24,6 @@ bucket_mapping = {
     "monk_7": "Bucket4", "monk_8": "Bucket4",
     "monk_9": "Bucket5", "monk_10": "Bucket5",
 }
-
-# Ensure the folder exists
-os.makedirs(SAVE_PATH, exist_ok=True)
 
 # Load Monk Skin Tone Reference Data
 def load_monk_skin_tones(csv_path):
