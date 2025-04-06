@@ -3,10 +3,8 @@ import cv2
 import numpy as np
 import csv
 import os
-import time
+from datetime import datetime
 from picamera2 import Picamera2
-from libcamera import controls
-import paho.mqtt.client as mqtt
 
 # Configurations
 TUNING_FILE = "/home/chroma/Arducam-477P-Pi4.json"
@@ -25,48 +23,46 @@ bucket_mapping = {
     "monk_9": "Bucket5", "monk_10": "Bucket5",
 }
 
-# Load Monk RGB values from CSV
-def load_skin_tone_dataset(csv_path):
-    dataset = {}
+# Ensure the folder exists
+os.makedirs(SAVE_PATH, exist_ok=True)
+
+# Load Monk Skin Tone Reference Data
+def load_monk_skin_tones(csv_path):
+    skin_tones = {}
     with open(csv_path, "r") as file:
         reader = csv.reader(file)
-        next(reader)
+        next(reader)  # Skip header
         for row in reader:
             tone = row[0]
-            rgb = tuple(map(int, row[1:4]))
-            dataset.setdefault(tone, []).append(rgb)
-    return dataset
+            rgb = (int(row[1]), int(row[2]), int(row[3]))
 
-# Find the closest tone via Euclidean distance
-def classify_skin_tone(rgb_sample, reference_dataset):
-    min_dist = float("inf")
+            # Store multiple RGB values per tone
+            if tone not in skin_tones:
+                skin_tones[tone] = []
+            skin_tones[tone].append(rgb)
+
+    return skin_tones
+
+def classify_skin_tone(face_rgb, reference_rgb):
+    """Find the closest Monk Skin Tone by comparing against multiple RGB samples."""
+    min_distance = float("inf")
     closest_tone = None
-    for tone, samples in reference_dataset.items():
-        for ref_rgb in samples:
-            dist = np.linalg.norm(np.array(rgb_sample) - np.array(ref_rgb))
-            if dist < min_dist:
-                min_dist = dist
+
+    for tone, rgb_samples in reference_rgb.items():
+        for ref_rgb in rgb_samples:
+            distance = np.sqrt(
+                (face_rgb[0] - ref_rgb[0])**2 +
+                (face_rgb[1] - ref_rgb[1])**2 +
+                (face_rgb[2] - ref_rgb[2])**2
+            )
+
+            if distance < min_distance:
+                min_distance = distance
                 closest_tone = tone
+
     return closest_tone
 
-# Get average RGB from forehead
-def get_forehead_rgb(frame, face_location):
-    top, right, bottom, left = face_location
-    face_height = bottom - top
-    forehead_top = top + int(face_height * 0.15)
-    forehead_bottom = top + int(face_height * 0.30)
-    forehead = frame[forehead_top:forehead_bottom, left:right]
-    forehead_rgb = cv2.cvtColor(forehead, cv2.COLOR_BGR2RGB)
-    avg_r = int(np.mean(forehead_rgb[:, :, 0]))
-    avg_g = int(np.mean(forehead_rgb[:, :, 1]))
-    avg_b = int(np.mean(forehead_rgb[:, :, 2]))
-    return (avg_r, avg_g, avg_b)
-
-# Setup MQTT
-mqtt_client = mqtt.Client()
-mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
-
-# Setup Camera
+# Initialize camera with tuning file
 def initialize_camera():
     picam2 = Picamera2(tuning=TUNING_FILE)
     config = picam2.create_preview_configuration(main={"size": (1280, 960)})
@@ -74,54 +70,75 @@ def initialize_camera():
     picam2.start()
     return picam2
 
-# Call the camera initialization
+# Get average RGB from forehead region
+def get_average_face_rgb(frame, face_location):
+    """Extract and compute the average RGB value from the forehead region."""
+    (top, right, bottom, left) = face_location
+    face_roi = frame[top:bottom, left:right]
+
+    # Focus only on the forehead
+    h, w, _ = face_roi.shape
+    forehead_roi = face_roi[:int(h * 0.4), :]
+
+    avg_r = int(np.mean(forehead_roi[:, :, 0]))
+    avg_g = int(np.mean(forehead_roi[:, :, 1]))
+    avg_b = int(np.mean(forehead_roi[:, :, 2]))
+
+    return (avg_r, avg_g, avg_b)
+
+# Setup MQTT
+mqtt_client = mqtt.Client()
+mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
+
+# Initialize camera and skin tone data
+MONK_SKIN_TONES = load_monk_skin_tones("monk_skin_tones.csv")
 picam2 = initialize_camera()
 
-# Load Reference Data
-reference_rgb = load_skin_tone_dataset(CSV_PATH)
+# Frame Buffer for Smoother Classification
+classification_buffer = []
 
-# Skin tone sampling buffer
-skin_tone_samples = []
-print("Press 'R' to reset, 'Q' to quit.")
+print("Press 'R' to reset. Press 'Q' to exit.")
 
 while True:
     frame = picam2.capture_array()
-    face_locations = face_recognition.face_locations(frame)  # Already RGB
+    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)  # Convert to OpenCV format
 
+    face_locations = face_recognition.face_locations(frame, model="hog")
+    
     for face_location in face_locations:
-        forehead_rgb = get_forehead_rgb(frame, face_location)
-        detected_tone = classify_skin_tone(forehead_rgb, reference_rgb)
-        print(f"Detected RGB: {forehead_rgb} -> Classified as: {detected_tone}")
+        avg_rgb = get_average_face_rgb(frame, face_location)
+        closest_tone = classify_skin_tone(avg_rgb, MONK_SKIN_TONES)
 
-        # Draw face box and label
-        top, right, bottom, left = face_location
-        cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
-        cv2.putText(frame, detected_tone, (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+        # Store in buffer and take median classification
+        classification_buffer.append(closest_tone)
+        if len(classification_buffer) > 5:  # Keep only last 5 readings
+            classification_buffer.pop(0)
 
-        if len(skin_tone_samples) < SAMPLE_COUNT:
-            skin_tone_samples.append(detected_tone)
+        most_common_tone = max(set(classification_buffer), key=classification_buffer.count)
 
-    # Display count status
-    cv2.putText(frame, f"Samples: {len(skin_tone_samples)}/{SAMPLE_COUNT}", (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+        # Draw bounding box around face
+        (top, right, bottom, left) = face_location
+        cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 3)
 
-    cv2.imshow("Skin Tone Detection", cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+        # Display detected skin tone
+        cv2.rectangle(frame, (left, bottom + 20), (right, bottom), (0, 255, 0), cv2.FILLED)
+        cv2.putText(frame, most_common_tone, (left + 6, bottom + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+
+        # Debugging Output
+        print(f"Detected RGB: {avg_rgb} -> Classified as: {most_common_tone}")
+
+    cv2.imshow("Skin Tone Detection", frame)
+
     key = cv2.waitKey(1) & 0xFF
 
     if key == ord("q"):
         break
-    elif key == ord("r"):
-        skin_tone_samples = []
-        print("Sampling buffer reset.")
 
-    # Once enough samples are collected
-    if len(skin_tone_samples) == SAMPLE_COUNT:
-        final_tone = max(set(skin_tone_samples), key=skin_tone_samples.count)
-        wled_bucket = bucket_mapping.get(final_tone, "Bucket3")
-        mqtt_message = f"PL={wled_bucket}"
-        mqtt_client.publish(MQTT_TOPIC, mqtt_message)
-        print(f"Sent MQTT command: {mqtt_message} to topic {MQTT_TOPIC}")
-        skin_tone_samples = []  # Reset for next person
+    elif key == ord(" "):  # Spacebar to capture an image
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        image_filename = f"{SAVE_PATH}/captured_{timestamp}.jpg"
+        cv2.imwrite(image_filename, frame)
+        print(f"Image saved to {image_filename}")
 
 cv2.destroyAllWindows()
 picam2.stop()
