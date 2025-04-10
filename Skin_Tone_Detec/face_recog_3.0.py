@@ -11,9 +11,12 @@ from collections import Counter
 # Configurations
 TUNING_FILE = "/home/chroma/Arducam-477P-Pi4.json"
 CSV_PATH = "/home/chroma/Desktop/Face Recognition/monk_skin_tones.csv"
-WLED_IP = "192.168.1.48"
 SAMPLE_COUNT = 7
 
+# Two ESP32 WLED targets
+WLED_IPS = ["192.168.1.231", "192.168.1.233"]
+
+# Mapping monk tones to buckets
 bucket_mapping = {
     "monk_1": "Bucket1", "monk_2": "Bucket1",
     "monk_3": "Bucket2", "monk_4": "Bucket2",
@@ -22,13 +25,22 @@ bucket_mapping = {
     "monk_9": "Bucket5", "monk_10": "Bucket5",
 }
 
+# Preset mapping for both ESP32s (same)
 bucket_to_preset_id = {
-    "Bucket1": 5,
-    "Bucket2": 3,
-    "Bucket3": 2,
+    "Bucket1": 1,
+    "Bucket2": 2,
+    "Bucket3": 3,
     "Bucket4": 4,
-    "Bucket5": 1,
+    "Bucket5": 5,
 }
+
+def send_preset(preset_id):
+    for ip in WLED_IPS:
+        try:
+            response = requests.get(f"http://{ip}/win&PL={preset_id}", timeout=2)
+            print(f"[HTTP] Sent preset {preset_id} to {ip} (Status {response.status_code})")
+        except Exception as e:
+            print(f"[HTTP] Error sending to {ip}: {e}")
 
 def load_monk_skin_tones(csv_path):
     skin_tones = {}
@@ -102,11 +114,7 @@ while True:
                 preset_id = bucket_to_preset_id.get(bucket)
 
                 if preset_id:
-                    try:
-                        response = requests.get(f"http://{WLED_IP}/win&PL={preset_id}", timeout=2)
-                        print(f"[HTTP] Sent: {most_common} -> {bucket} (Preset {preset_id}) Status: {response.status_code}")
-                    except Exception as e:
-                        print(f"[HTTP] Error sending to WLED: {e}")
+                    send_preset(preset_id)
                 else:
                     print(f"[HTTP] Unknown bucket mapping for: {most_common}")
 
@@ -125,6 +133,7 @@ while True:
         classification_buffer.clear()
         sampling_active = True
         print("Sampling reset.")
+        send_preset(6)  # Send Boot state to both ESP32s
 
 cv2.destroyAllWindows()
 picam2.stop()
